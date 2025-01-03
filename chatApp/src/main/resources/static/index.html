@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>Chat Application</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+</head>
+<body>
+<input type="text" id="user" placeholder="username" />
+<button onclick="setUserName()">login user</button>
+<h1>Chat Application</h1>
+
+<div>
+    <div>
+        <h2>Group Chat</h2>
+    <div id="groupChat"></div>
+        <input type="text" id="groupMessage" placeholder="message" />
+        <button onclick="sendGroupMessage()">Send to Group</button>
+    </div>
+</div>
+<div>
+    <h2>private Chat</h2>
+    <div>
+        <div id="privateChat"></div>
+        <input type="text" id="recipient" placeholder="Recipient" />
+        <input type="text" id="privateMessage" placeholder="message" />
+        <button onclick="sendPrivateMessage()">Send to private</button>
+    </div>
+</div>
+   <script>
+       let stompClient = null
+       function connect(){
+           const socket = new SockJS("/chat");
+           stompClient = Stomp.over(socket);
+           stompClient.connect({}, function (){
+               stompClient.subscribe("/topic/group", function (message){
+                   showGroupMessage(JSON.parse(message.body));
+               });
+               let user = document.getElementById("user").value;
+               stompClient.subscribe("/queue/"+user, function (message){
+                   console.log(message);
+                   showPrivateMessage(JSON.parse(message.body));
+               });
+           });
+       }
+       function sendGroupMessage(){
+           const sender = document.getElementById("user").value;
+           const content = document.getElementById("groupMessage").value;
+           stompClient.send("/app/sendMessage", {}, JSON.stringify({
+               sender:sender,
+               content:content,
+               type:"GROUP"
+           }));
+           document.getElementById("groupMessage").value = "";
+       }
+       function sendPrivateMessage(){
+           const sender = document.getElementById("user").value;
+           const r = document.getElementById("recipient").value;
+           const content = document.getElementById("privateMessage").value;
+           stompClient.send("/app/sendMessage", {}, JSON.stringify({
+               sender:sender,
+               recipient:r,
+               content:content,
+               type:"PRIVATE"
+           }));
+           document.getElementById("privateMessage").value = "";
+       }
+
+       function showGroupMessage(message){
+           const groupChat = document.getElementById("groupChat");
+           groupChat.innerHTML += `<p><strong>${message.sender}:</strong> ${message.content} </p>`;
+       }
+
+       function showPrivateMessage(message){
+           console.log(message);
+           const privateChat = document.getElementById("privateChat");
+           privateChat.innerHTML += `<p><strong>${message.sender}:</strong> ${message.content} </p>`;
+       }
+       function setUserName(){
+           let user = document.getElementById("user").value;
+           if(user){
+               connect();
+           } else {
+               alert("username required!")
+           }
+       }
+   </script>
+</body>
+</html>
